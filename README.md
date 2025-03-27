@@ -37,6 +37,7 @@ This project is a real-time typing speed comparison application where two users 
      http://127.0.0.1:8080/
      ```
    - On another device connected to the same network, find the host machine's IP address (e.g., `192.168.1.100`) and navigate to:
+   - type config on terminal and check IPv4 address and use it on place of <host-ip>.
      ```
      http://<host-ip>:8080/
      ```
