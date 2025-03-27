@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Speed Comparison</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        #timer-container {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: red;
+            margin-top: 10px;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Typing Speed Comparison</h1>
+    <div id="homepage">
+        <a href="/create"><button id="create-session">Create Session</button></a>
+        <button id="join-session-button">Join Session</button>
+    </div>
+
+    <div id="create-session-container" style="display: none;">
+        <p>Your session code: <span id="session-code"></span></p>
+    </div>
+
+    <div id="join-session-container" style="display: none;">
+        <label for="join-session-id">Enter Session Code:</label>
+        <input type="text" id="join-session-id" placeholder="Enter session code">
+        <label for="user-id">Your User ID:</label>
+        <input type="text" id="user-id" placeholder="Enter your user ID">
+        <button id="join-session-submit">Join</button>
+        <p id="join-error" class="error" style="display: none;"></p>
+    </div>
+
+    <div id="lobby" style="display: none;">
+        <h2>Lobby</h2>
+        <p>Waiting for all users to be ready...</p>
+        <button id="ready-to-start">Ready to Start</button>
+        <p id="start-error" class="error" style="display: none;"></p>
+    </div>
+
+    <div id="typing-area-container" style="display: none;">
+        <p id="predefined-text">The quick brown fox jumps over the lazy dog.</p>
+        <textarea id="typing-area" rows="5" cols="50" placeholder="Start typing here..." disabled></textarea>
+        <p>Speed: <span id="speed">0</span> WPM</p>
+        <p>Accuracy: <span id="accuracy">0</span>%</p>
+        <div id="timer-container">Time Remaining: <span id="timer">0</span> seconds</div>
+    </div>
+
+    <script>
+        const socket = io();
+        let sessionId, userId, timerInterval;
+
+        document.getElementById('create-session').addEventListener('click', () => {
+            document.getElementById('homepage').style.display = 'none';
+            socket.emit('create_session');
+        });
+
+        socket.on('session_created', (data) => {
+            sessionId = data.session_id;
+            document.getElementById('create-session-container').style.display = 'block';
+            document.getElementById('session-code').innerText = sessionId;
+        });
+
+        document.getElementById('join-session-button').addEventListener('click', () => {
+            document.getElementById('homepage').style.display = 'none';
+            document.getElementById('join-session-container').style.display = 'block';
+        });
+
+        document.getElementById('join-session-submit').addEventListener('click', () => {
+            sessionId = document.getElementById('join-session-id').value;
+            userId = document.getElementById('user-id').value;
+
+            if (sessionId && userId) {
+                socket.emit('join_session', { session_id: sessionId, user_id: userId });
+            }
+        });
+
+        socket.on('session_joined', (data) => {
+            document.getElementById('join-session-container').style.display = 'none';
+            document.getElementById('lobby').style.display = 'block';
+        });
+
+        socket.on('join_error', (data) => {
+            const errorMessage = data.error;
+            console.error(`Join Error: ${errorMessage}`); // Log error to console for debugging
+            document.getElementById('join-error').innerText = errorMessage;
+            document.getElementById('join-error').style.display = 'block';
+        });
+
+        document.getElementById('ready-to-start').addEventListener('click', () => {
+            socket.emit('ready_to_start', { session_id: sessionId, user_id: userId });
+        });
+
+        socket.on('session_started', (data) => {
+            document.getElementById('lobby').style.display = 'none';
+            document.getElementById('typing-area-container').style.display = 'block';
+            document.getElementById('typing-area').disabled = false;
+            startTimer(data.duration);
+        });
+
+        const predefinedText = document.getElementById('predefined-text').innerText;
+        const typingArea = document.getElementById('typing-area');
+        const speedDisplay = document.getElementById('speed');
+        const accuracyDisplay = document.getElementById('accuracy');
+        const timerDisplay = document.getElementById('timer');
+
+        typingArea.addEventListener('input', () => {
+            const typedText = typingArea.value;
+            socket.emit('typing_progress', {
+                session_id: sessionId,
+                user_id: userId,
+                typed_text: typedText,
+                predefined_text: predefinedText
+            });
+        });
+
+        socket.on('update_progress', (data) => {
+            if (data.user_id === userId) {
+                speedDisplay.innerText = data.speed.toFixed(2);
+                accuracyDisplay.innerText = data.accuracy.toFixed(2);
+            }
+        });
+
+        socket.on('session_ended', (data) => {
+            clearInterval(timerInterval);
+            document.getElementById('typing-area').disabled = true;
+            alert('Session ended! Check your results.');
+        });
+
+        function startTimer(duration) {
+            let timeRemaining = duration;
+            timerDisplay.innerText = timeRemaining;
+
+            timerInterval = setInterval(() => {
+                timeRemaining -= 1;
+                timerDisplay.innerText = timeRemaining;
+
+                if (timeRemaining <= 0) {
+                    clearInterval(timerInterval);
+                }
+            }, 1000);
+        }
+
+        window.addEventListener('beforeunload', () => {
+            socket.emit('end_session', { session_id: sessionId });
+        });
+    </script>
+</body>
+</html>

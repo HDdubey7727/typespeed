@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Session</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Create a New Session</h1>
+    <div id="create-session-form">
+        <label for="user-id">Your User ID:</label>
+        <input type="text" id="user-id" placeholder="Enter your user ID">
+        <label for="duration">Duration (seconds):</label>
+        <input type="number" id="duration" placeholder="Enter duration">
+        <button id="create-session-submit">Create</button>
+    </div>
+
+    <div id="session-created" style="display: none;">
+        <h2>Session Created</h2>
+        <p>Your session code: <span id="session-code"></span></p>
+    </div>
+
+    <script>
+        const socket = io();
+
+        document.getElementById('create-session-submit').addEventListener('click', () => {
+            const userId = document.getElementById('user-id').value;
+            const duration = parseInt(document.getElementById('duration').value);
+
+            if (userId && duration) {
+                socket.emit('create_session', { user_id: userId, duration: duration });
+            }
+        });
+
+        socket.on('session_created', (data) => {
+            document.getElementById('create-session-form').style.display = 'none';
+            document.getElementById('session-created').style.display = 'block';
+            document.getElementById('session-code').innerText = data.session_id;
+        });
+    </script>
+</body>
+</html>
